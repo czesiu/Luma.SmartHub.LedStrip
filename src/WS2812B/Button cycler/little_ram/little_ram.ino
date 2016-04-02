@@ -1,4 +1,4 @@
-
+// ############################################# START LIBRARY ###################################################################
 /*
  This is an example of how simple driving a Neopixel can be
  This code is optimized for understandability and changability rather than raw speed
@@ -6,8 +6,6 @@
 */
 
 // Change this to be at least as long as your pixel string (too long will work fine, just be a little slower)
-
-#define PIXELS 159  // Number of pixels in the string
 
 // These values depend on which pin your string is connected to and what board you are using 
 // More info on how to find these at http://www.arduino.cc/en/Reference/PortManipulation
@@ -123,19 +121,32 @@ void sendByte( unsigned char byte ) {
 // Set the specified pin up as digital out
 
 void ledsetup() {
-  
   bitSet( PIXEL_DDR , PIXEL_BIT );
-  
 }
 
-void sendPixel( unsigned char r, unsigned char g , unsigned char b )  {  
-  
-  sendByte(g);          // Neopixel wants colors in green then red then blue order
+void sendPixel( uint32_t c )  {
+  uint8_t
+      r = (uint8_t)(c >> 16),
+      g = (uint8_t)(c >>  8),
+      b = (uint8_t)c;
+              
+  sendByte(g);            // Neopixel wants colors in green then red then blue order
   sendByte(r);
   sendByte(b);
-  
 }
 
+uint32_t color(uint8_t r, uint8_t g, uint8_t b) {
+  return ((uint32_t)r << 16) | ((uint32_t)g <<  8) | b;
+}
+
+uint32_t color(uint32_t c, uint8_t brightness) {
+  uint8_t
+      r = (uint8_t)(c >> 16),
+      g = (uint8_t)(c >>  8),
+      b = (uint8_t)c;
+      
+  return color((r * brightness) / 256, (g * brightness) / 256 , (b * brightness) / 256);
+}
 
 // Just wait long enough without sending any bots to cause the pixels to latch and display the last sent frame
 
@@ -160,92 +171,155 @@ void show() {
   
 */
 
+// ############################################# END LIBRARY ###################################################################
 
-// Display a single color on the whole string
+#define PIXELS 159        // Number of pixels in the string
 
-void showColor( unsigned char r , unsigned char g , unsigned char b ) {
+#define BUTTON_PIN   1    // Digital IO pin connected to the button.  This will be
+                          // driven with a pull-up resistor so the switch should
+                          // pull the pin to ground momentarily.  On a high -> low
+                          // transition the button press logic will execute.
+                          
+bool oldState = HIGH;
+long oldMillis = 0;
+int showType = 8;
+uint16_t j = 0;
+
+void setup() {
+  ledsetup();
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(BUTTON_PIN+1, OUTPUT);
+  digitalWrite(BUTTON_PIN+1, LOW);
+}
+
+void loop() {
+  // Get current button state.
+  bool newState = digitalRead(BUTTON_PIN);
   
-  cli();  
-  for( int p=0; p<PIXELS; p++ ) {
-    sendPixel( r , g , b );
+  // Check if state changed from high to low (button press).
+  if (newState == LOW && oldState == HIGH) {
+    // Check if button is still low after debounce.
+    delay(20);
+    // Check if button is still low after debounce.
+    newState = digitalRead(BUTTON_PIN);
+    if (newState == LOW) {
+      oldMillis = millis();
+    }
+  } else if (newState == LOW && oldState == LOW) {
+    // Short delay to debounce button.
+    delay(20);
+    // Check if button is still low after debounce.
+    newState = digitalRead(BUTTON_PIN);
+    if (newState == LOW) {
+      long ms = millis() - oldMillis;
+  
+      if (ms > 1000 && showType != 0) {
+        showType=0;
+        oldMillis = 0;
+      }
+    }
+  } else if (newState == HIGH && oldState == LOW) {
+    // Short delay to debounce button.
+    delay(20);
+    // Check if button is still low after debounce.
+    newState = digitalRead(BUTTON_PIN);
+    if (newState == HIGH && oldMillis != 0) {
+      j = 0;
+      showType++;
+    }
+  } else {
+    oldMillis = 0;
   }
-  sei();
-  show();
-  
+
+  // Set the last button state to the old state.
+  oldState = newState;
+
+  startShow(showType);
+}
+
+void startShow(int i) {
+  switch(i){
+    case  0: colorWipe(color(0, 0, 0), 50);           // Black/off
+             break;
+    case  1: colorWipe(color(255, 0, 0), 50);         // Red
+             break;
+    case  2: colorWipe(color(0, 255, 0), 50);         // Green
+             break;
+    case  3: colorWipe(color(0, 0, 255), 50);         // Blue
+             break;
+    case  4: theaterChase(color(127, 127, 127), 50);  // White
+             break;
+    case  5: theaterChase(color(127,   0,   0), 50);  // Red
+             break;
+    case  6: theaterChase(color(  0,   0, 127), 50);  // Blue
+             break;
+    case  7: rainbow(20);
+             break;
+    case  8: rainbowCycleNew(20);
+             break;
+    case  9: theaterChaseRainbow(50);
+             break;
+    case 10: detonate(color(255, 255, 255));
+             break;
+    default: showType = 0;
+             break;
+  }
 }
 
 // Fill the dots one after the other with a color
-// rewrite to lift the compare out of the loop
-void colorWipe(unsigned char r , unsigned char g, unsigned char b, unsigned  char wait ) {
-  for(unsigned int i=0; i<PIXELS; i+= 1 ) {
-    
-    cli();
-    unsigned int p=0;
-    
-    while (p++<=i) {
-        sendPixel(r,g,b);
-    } 
-     
-    while (p++<=PIXELS) {
-        sendPixel(0,0,0);  
-      
-    }
-    
-    sei();
-    show();
-    delay(wait);
-  }
-}
-
-// Theatre-style crawling lights.
-// Changes spacing to be dynmaic based on string size
-
-#define THEATER_SPACING (PIXELS/20)
-
-void theaterChase( unsigned char r , unsigned char g, unsigned char b, unsigned char wait ) {
+void colorWipe(uint32_t c, uint8_t wait) {
+  cli();
+  unsigned int p = 0;
   
-  for (int j=0; j< 3 ; j++) {  
-  
-    for (int q=0; q < THEATER_SPACING ; q++) {
-      
-      unsigned int step=0;
-      
-      cli();
-      
-      for (int i=0; i < PIXELS ; i++) {
-        
-        if (step==q) {
-          
-          sendPixel( r , g , b );
-          
-        } else {
-          
-          sendPixel( 0 , 0 , 0 );
-          
-        }
-        
-        step++;
-        
-        if (step==THEATER_SPACING) step =0;
-        
-      }
-      
-      sei();
-      
-      show();
-      delay(wait);
-      
-    }
-    
+  while (p++ <= j) {
+      sendPixel(c);
+  } 
+   
+  while (p++ <= PIXELS) {
+      sendPixel(0);  
   }
   
+  sei();
+  
+  show();
+  delay(wait);
+  
+  j = (j + 1) % PIXELS;
 }
-        
+
+void rainbow(uint8_t wait) {
+  cli();
+  for(uint16_t i = 0; i < PIXELS; i++) {
+    sendPixel(wheel(i + j));
+  }
+  sei();
+    
+  show();
+  delay(wait);
+  
+  j = (j + 1) % 256;
+}
 
 
+// Slightly different, this makes the rainbow equally distributed throughout
+// It is not working, because division takes a lot of processor time ((i * 256 / strip.numPixels()) + j).
+void rainbowCycleOld(uint8_t wait) {
+  cli();
+  for(uint16_t i = 0; i < PIXELS; i++) {
+    sendPixel(wheel((i * 256 / PIXELS) + j));
+  }
+  sei();
+  
+  show();
+  delay(wait);
+
+  j = (j + 1) % (256 * 5);
+}
+
+// Slightly different, this makes the rainbow equally distributed throughout
 // I rewrite this one from scrtach to use high resolution for the color wheel to look nicer on a *much* bigger string
-                                                                            
-void rainbowCycle(unsigned char frames , unsigned int frameAdvance, unsigned int pixelAdvance ) {
+void rainbowCycleNew(uint8_t wait) {
   
   // Hue is a number between 0 and 3*256 than defines a mix of r->g->b where
   // hue of 0 = Full red
@@ -254,105 +328,162 @@ void rainbowCycle(unsigned char frames , unsigned int frameAdvance, unsigned int
   // hue of 384 = 1/2 green and 1/2 blue
   // ...
   
-  unsigned int firstPixelHue = 0;     // Color for the first pixel in the string
-  
-  for(unsigned int j=0; j<frames; j++) {                                  
+  uint16_t currentPixelHue = j;
+     
+  cli();
+  for(uint16_t i = 0; i < PIXELS; i++) {
     
-    unsigned int currentPixelHue = firstPixelHue;
-       
-    cli();    
-        
-    for(unsigned int i=0; i< PIXELS; i++) {
-      
-      if (currentPixelHue>=(3*256)) {                  // Normalize back down incase we incremented and overflowed
-        currentPixelHue -= (3*256);
-      }
-            
-      unsigned char phase = currentPixelHue >> 8;
-      unsigned char step = currentPixelHue & 0xff;
-                 
-      switch (phase) {
-        
-        case 0: 
-          sendPixel( ~step , step ,  0 );
-          break;
+    if (currentPixelHue >= (3 * 256)) {                  // Normalize back down incase we incremented and overflowed
+      currentPixelHue = 0;
+    }
           
-        case 1: 
-          sendPixel( 0 , ~step , step );
-          break;
+    uint8_t phase = currentPixelHue >> 8;
+    uint8_t step = currentPixelHue & 0xff;
+               
+    switch (phase) {
+      case 0: 
+        sendPixel(color(~step, step, 0));
+        break;
+        
+      case 1: 
+        sendPixel(color(0, ~step, step));
+        break;
 
-        case 2: 
-          sendPixel(  step ,0 , ~step );
-          break;
-          
+      case 2: 
+        sendPixel(color(step, 0, ~step));
+        break;
+    }
+    
+    currentPixelHue += 5;      
+  } 
+  sei();
+  
+  show();
+  delay(wait);
+
+  j = (j + 20) % (3 * 256);
+}
+
+#define THEATER_SPACING (PIXELS / 20)
+
+// Theatre-style crawling lights.
+// Changes spacing to be dynmaic based on string size
+void theaterChase(uint32_t c, uint8_t wait) {
+  for (uint16_t q = 0; q < THEATER_SPACING; q++) {
+    uint16_t step = 0;
+    
+    cli();
+    for (uint16_t i = 0; i < PIXELS; i++) {
+      if (step == q) {
+        sendPixel(c);
+      } else {
+        sendPixel(0);
       }
       
-      currentPixelHue+=pixelAdvance;                                      
+      step++;
       
-                          
-    } 
+      if (step == THEATER_SPACING) {
+        step = 0;
+      }
+    }
     
     sei();
     
     show();
-    
-    firstPixelHue += frameAdvance;
-           
+    delay(wait);
   }
 }
 
-  
+// Theatre-style crawling lights with rainbow effect
+void theaterChaseRainbow(uint8_t wait) {
+  for (uint16_t q = 0; q < THEATER_SPACING; q++) {
+    uint16_t step = 0;
+    
+    cli();
+    for (uint16_t i = 0; i < PIXELS; i++) {
+      if (step == q) {
+        sendPixel(wheel(i + j));
+      } else {
+        sendPixel(0);
+      }
+      
+      step++;
+      
+      if (step == THEATER_SPACING) {
+        step = 0;
+      }
+    }
+    sei();
+    
+    show();
+    delay(wait);
+  }
+
+  j = (j + 1) % 256;
+}
+
 // I added this one just to demonstrate how quickly you can flash the string.
 // Flashes get faster and faster until *boom* and fade to black.
+void detonate(uint32_t c) {
+  showColor(0);
+    
+  if (j == 0) {
+    j = 1000;
+  }
+  else if (j > 1) {
+    delay(j);
+    
+    showColor(c); // Flash the color 
+    showColor(0);
+    
+    j =  (j * 4) / 5; // delay between flashes is halved each time until zero
+  }
+  else {
+    // Then we fade to black....
+    for (uint8_t fade = 255; fade > 0; fade--) {
+      showColor(color(c, fade));
+    }
+    showColor(0);
+      
+    j = 1000;
+  }
+}
 
-void detonate( unsigned char r , unsigned char g , unsigned char b , unsigned int startdelayms) {
-  while (startdelayms) {
-    
-    showColor( r , g , b );      // Flash the color 
-    showColor( 0 , 0 , 0 );
-    
-    delay( startdelayms );      
-    
-    startdelayms =  ( startdelayms * 4 ) / 5 ;           // delay between flashes is halved each time until zero
-    
+// Display a single color on the whole string
+void showColor(uint32_t c) {
+  cli();
+  for(uint16_t i = 0; i < PIXELS; i++) {
+    sendPixel(c);
+  }
+  sei();
+  show();
+}
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+inline uint32_t wheel(uint8_t position) {
+  uint16_t currentPixelHue = position << 2;    // Miltiply by 4, because by simple by 3 takes a lot of processor time
+  
+  if (currentPixelHue >= (3 * 256)) {                  // Normalize back down incase we incremented and overflowed
+    currentPixelHue = 0;
   }
   
-  // Then we fade to black....
+  uint8_t phase = currentPixelHue >> 8;
+  uint8_t step = currentPixelHue & 0xff;
   
-  for( int fade=256; fade>0; fade-- ) {
-    
-    showColor( (r * fade) / 256 ,(g*fade) /256 , (b*fade)/256 );
-        
+  switch (phase) {
+    case 0: 
+      return color(~step, step, 0);
+      break;
+      
+    case 1: 
+      return color(0, ~step, step);
+      break;
+  
+    case 2: 
+      return color(step, 0, ~step);
+      break;
   }
-  
-  showColor( 0 , 0 , 0 );
-  
-    
+      
+  return 0;
 }
-
-void setup() {
-    
-  ledsetup();
-  
-}
-
-
-void loop() {
-  // Some example procedures showing how to display to the pixels:
-  colorWipe(255, 0, 0, 0); // Red
-  colorWipe(0, 255, 0, 0); // Green
-  colorWipe(0, 0, 255, 0); // Blue
-  
-  // Send a theater pixel chase in...
-  theaterChase(127, 127, 127, 0); // White
-  theaterChase(127,   0,   0, 0); // Red
-  theaterChase(  0,   0, 127, 0); // Blue
-  
-  rainbowCycle(1000, 20 , 5 );
-  detonate( 255 , 255 , 255 , 1000);
-}
-
-
-
-
-

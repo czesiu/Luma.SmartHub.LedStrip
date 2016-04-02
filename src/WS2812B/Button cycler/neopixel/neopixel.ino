@@ -12,7 +12,7 @@
 
 #define PIXEL_PIN    0    // Digital IO pin connected to the NeoPixels.
 
-#define PIXEL_COUNT 130
+#define PIXEL_COUNT 60
 
 // Parameter 1 = number of pixels in strip,  neopixel stick has 8
 // Parameter 2 = pin number (most are valid)
@@ -69,7 +69,7 @@ void loop() {
     newState = digitalRead(BUTTON_PIN);
     if (newState == HIGH && oldMillis != 0) {
       j = 0;
-      showType = (showType+1) % 10;
+      showType++;
     }
   } else {
     oldMillis = 0;
@@ -83,26 +83,30 @@ void loop() {
 
 void startShow(int i) {
   switch(i){
-    case 0: colorWipe(strip.Color(0, 0, 0), 50);    // Black/off
-            break;
-    case 1: colorWipe(strip.Color(255, 0, 0), 50);  // Red
-            break;
-    case 2: colorWipe(strip.Color(0, 255, 0), 50);  // Green
-            break;
-    case 3: colorWipe(strip.Color(0, 0, 255), 50);  // Blue
-            break;
-    case 4: theaterChase(strip.Color(127, 127, 127), 50); // White
-            break;
-    case 5: theaterChase(strip.Color(127,   0,   0), 50); // Red
-            break;
-    case 6: theaterChase(strip.Color(  0,   0, 127), 50); // Blue
-            break;
-    case 7: rainbow(20);
-            break;
-    case 8: rainbowCycle(20);
-            break;
-    case 9: theaterChaseRainbow(50);
-            break;
+    case  0: colorWipe(strip.Color(0, 0, 0), 50);           // Black/off
+             break;
+    case  1: colorWipe(strip.Color(255, 0, 0), 50);         // Red
+             break;
+    case  2: colorWipe(strip.Color(0, 255, 0), 50);         // Green
+             break;
+    case  3: colorWipe(strip.Color(0, 0, 255), 50);         // Blue
+             break;
+    case  4: theaterChase(strip.Color(127, 127, 127), 50);  // White
+             break;
+    case  5: theaterChase(strip.Color(127,   0,   0), 50);  // Red
+             break;
+    case  6: theaterChase(strip.Color(  0,   0, 127), 50);  // Blue
+             break;
+    case  7: rainbow(20);
+             break;
+    case  8: rainbowCycle(20);
+             break;
+    case  9: theaterChaseRainbow(50);
+             break;
+    case 10: detonate(strip.Color(255 , 255 , 255));
+             break;
+    default: showType = 0;
+             break;
   }
 }
 
@@ -123,8 +127,8 @@ void colorWipe(uint32_t c, uint8_t wait) {
 }
 
 void rainbow(uint8_t wait) {
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
-    strip.setPixelColor(i, Wheel((i+j) & 255));
+  for(uint16_t i = 0; i < strip.numPixels(); i++) {
+    strip.setPixelColor(i, wheel((i + j) & 255));
   }
   strip.show();
   delay(wait);
@@ -134,7 +138,7 @@ void rainbow(uint8_t wait) {
 // Slightly different, this makes the rainbow equally distributed throughout
 void rainbowCycle(uint8_t wait) {
   for(uint16_t i=0; i< strip.numPixels(); i++) {
-    strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+    strip.setPixelColor(i, wheel(((i * 256 / strip.numPixels()) + j) & 255));
   }
   strip.show();
   delay(wait);
@@ -152,19 +156,17 @@ void theaterChase(uint32_t c, uint8_t wait) {
 
     delay(wait);
 
-    for (int i=0; i < strip.numPixels(); i=i+3) {
+    for (int i= 0; i < strip.numPixels(); i=i+3) {
       strip.setPixelColor(i+q, 0);        //turn every third pixel off
     }
   }
-  
-  j = (j+1) % 10;
 }
 
 //Theatre-style crawling lights with rainbow effect
 void theaterChaseRainbow(uint8_t wait) {
   for (int q=0; q < 3; q++) {
     for (int i=0; i < strip.numPixels(); i=i+3) {
-      strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
+      strip.setPixelColor(i+q, wheel( (i+j) % 255));    //turn every third pixel on
     }
     strip.show();
 
@@ -178,17 +180,67 @@ void theaterChaseRainbow(uint8_t wait) {
   j = (j+1) % 256;
 }
 
+
+// I added this one just to demonstrate how quickly you can flash the string.
+// Flashes get faster and faster until *boom* and fade to black.
+void detonate(uint32_t c) {
+  showColor(0);
+    
+  if (j == 0) {
+    j = 1000;
+  }
+  else if (j > 1) {
+    delay(j);
+    
+    showColor(c); // Flash the color 
+    showColor(0);
+    
+    j =  (j * 4) / 5; // delay between flashes is halved each time until zero
+  }
+  else {
+    // Then we fade to black....
+    for (uint8_t fade = 255; fade > 0; fade--) {
+      showColor(color(c, fade));
+    }
+    showColor(0);
+      
+    j = 1000;
+  }
+}
+
+// Display a single color on the whole string
+void showColor(uint32_t c) {
+  for(uint16_t i = 0; i < strip.numPixels(); i++) {
+    strip.setPixelColor(i, c);
+  }
+  
+  strip.show();
+}
+
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
-uint32_t Wheel(byte WheelPos) {
-  WheelPos = 255 - WheelPos;
-  if(WheelPos < 85) {
-    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+uint32_t wheel(uint8_t position) {
+  position = 255 - position;
+  
+  if (position < 85) {
+    return strip.Color(255 - position * 3, 0, position * 3);
   }
-  if(WheelPos < 170) {
-    WheelPos -= 85;
-    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  
+  if (position < 170) {
+    position -= 85;
+    return strip.Color(0, position * 3, 255 - position * 3);
   }
-  WheelPos -= 170;
-  return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  
+  position -= 170;
+  return strip.Color(position * 3, 255 - position * 3, 0);
+}
+
+
+uint32_t color(uint32_t c, uint8_t brightness) {
+  uint8_t
+      r = (uint8_t)(c >> 16),
+      g = (uint8_t)(c >>  8),
+      b = (uint8_t)c;
+      
+  return strip.Color((r * brightness) / 256, (g * brightness) / 256 , (b * brightness) / 256);
 }
