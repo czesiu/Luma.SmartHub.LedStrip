@@ -6,32 +6,53 @@ namespace Luma.SmartHub.LedStrip
 {
     class Program
     {
-        private static ModuleConnection _moduleConnection;
-        private static int _ledCount = 12;
+        private static IModuleConnection _moduleConnection;
 
         static void Main(string[] args)
         {
             try
             {
-                _moduleConnection = new ModuleConnection("COM5", 74880);
+                var wait = 0;
+                //_moduleConnection = new SerialPortModuleConnection("COM3", 250000)
+                //{
+                //    LedCount = 159,
+                //    ErrorMode = ErrorMode.RetryOnError
+                //};
+
+                //_moduleConnection = new HttpModuleConnection("http://192.168.0.103/led-strip")
+                //{
+                //    LedCount = 12
+                //};
+
+                //_moduleConnection = new TcpModuleConnection("192.168.137.134", 23)
+                //{
+                //    LedCount = 159,
+                //    ErrorMode = ErrorMode.SendAndForget
+                //};
+
+                _moduleConnection = new UdpModuleConnection("192.168.137.76", 8888)
+                {
+                    LedCount = 159,
+                    ErrorMode = ErrorMode.RetryOnError
+                };
 
                 _moduleConnection.Connect();
 
                 while (true)
                 {
                     // Some example procedures showing how to display to the pixels:
-                    ColorWipe(Color.Red, 50);
-                    ColorWipe(Color.Green, 50);
-                    ColorWipe(Color.Blue, 50);
+                    ColorWipe(Color.Red, _moduleConnection.LedCount, wait);
+                    ColorWipe(Color.Green, _moduleConnection.LedCount, wait);
+                    ColorWipe(Color.Blue, _moduleConnection.LedCount, wait);
 
                     // Send a theater pixel chase in...
-                    TheaterChase(Color.White.WithBrightness(127), 50);
-                    TheaterChase(Color.Red.WithBrightness(127), 50);
-                    TheaterChase(Color.Blue.WithBrightness(127), 50);
+                    TheaterChase(Color.White.WithBrightness(127), wait);
+                    TheaterChase(Color.Red.WithBrightness(127), wait);
+                    TheaterChase(Color.Blue.WithBrightness(127), wait);
 
                     Rainbow(0);
                     RainbowCycle(0);
-                    TheaterChaseRainbow(50);
+                    TheaterChaseRainbow(wait);
 
                     Detonate(Color.White, 1000);
                 }
@@ -42,17 +63,22 @@ namespace Luma.SmartHub.LedStrip
             }
         }
 
-        private static void ColorWipe(Color color, int wait)
+        private static void ColorWipe(Color color, int leds, int wait)
         {
-            for (var j = 0; j <= _ledCount; j++)
+            for (var j = 0; j <= leds; j++)
             {
-                var colors = Enumerable.Range(0, j).Select(range => color)
-                    .Concat(Enumerable.Range(j, _ledCount).Select(range => Color.Black)).ToArray();
-
-                _moduleConnection.WriteColors(colors);
+                ColorWipeInternal(color, j);
 
                 Thread.Sleep(wait);
             }
+        }
+
+        private static void ColorWipeInternal(Color color, int leds)
+        {
+            var colors = Enumerable.Range(0, leds).Select(range => color)
+                .Concat(Enumerable.Range(leds, _moduleConnection.LedCount - leds).Select(range => Color.Black)).ToArray();
+
+            _moduleConnection.WriteColors(colors);
         }
 
         private static void TheaterChase(Color color, int wait)
@@ -61,7 +87,7 @@ namespace Luma.SmartHub.LedStrip
             {  
                 for (var q = 0; q < 3; q++)
                 {
-                    var colors = Enumerable.Range(0, _ledCount).Select(i =>
+                    var colors = Enumerable.Range(0, _moduleConnection.LedCount).Select(i =>
                     {
                         if (i % 3 == q)
                         {
@@ -84,7 +110,7 @@ namespace Luma.SmartHub.LedStrip
             {
                 for (var q = 0; q < 3; q++)
                 {
-                    var colors = Enumerable.Range(0, _ledCount).Select(i =>
+                    var colors = Enumerable.Range(0, _moduleConnection.LedCount).Select(i =>
                     {
                         if (i % 3 == q)
                         {
@@ -105,7 +131,7 @@ namespace Luma.SmartHub.LedStrip
         {
             for (var j = 0; j < 256; j++)
             {
-                var colors = Enumerable.Range(0, _ledCount).Select(i => Wheel((byte)((i + j) & 255))).ToArray();
+                var colors = Enumerable.Range(0, _moduleConnection.LedCount).Select(i => Wheel((byte)((i + j) & 255))).ToArray();
 
                 _moduleConnection.WriteColors(colors);
 
@@ -117,7 +143,7 @@ namespace Luma.SmartHub.LedStrip
         {
             for (var j = 0; j < 256 * 5; j++) // 5 cycles of all colors on wheel
             {
-                var colors = Enumerable.Range(0, _ledCount).Select(i => Wheel((byte)(((i * 256 / _ledCount) + j) & 255))).ToArray();
+                var colors = Enumerable.Range(0, _moduleConnection.LedCount).Select(i => Wheel((byte)(((i * 256 / _moduleConnection.LedCount) + j) & 255))).ToArray();
 
                 _moduleConnection.WriteColors(colors);
 
