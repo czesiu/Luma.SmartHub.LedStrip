@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Luma.SmartHub.LedStrip", "Luma.SmartHub.LedStrip.csproj", "{43871796-6BC9-437B-A0D9-E4E928F23ABE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Luma.SmartHub.LedStrip", "Luma.SmartHub.LedStrip\Luma.SmartHub.LedStrip.csproj", "{43871796-6BC9-437B-A0D9-E4E928F23ABE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Luma.SmartHub.LedStrip.Audio", "..\Luma.SmartHub.LedStrip.Audio\Luma.SmartHub.LedStrip.Audio.csproj", "{5AC89349-9B9C-4130-931F-694DAD563ABD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Luma.SmartHub.LedStrip.Audio", "Luma.SmartHub.LedStrip.Audio\Luma.SmartHub.LedStrip.Audio.csproj", "{5AC89349-9B9C-4130-931F-694DAD563ABD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
