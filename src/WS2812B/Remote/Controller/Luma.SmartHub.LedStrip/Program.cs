@@ -12,7 +12,7 @@ namespace Luma.SmartHub.LedStrip
         {
             try
             {
-                var wait = 0;
+                var wait = 30;
                 //_moduleConnection = new SerialPortModuleConnection("COM3", 250000)
                 //{
                 //    LedCount = 159,
@@ -30,11 +30,16 @@ namespace Luma.SmartHub.LedStrip
                 //    ErrorMode = ErrorMode.SendAndForget
                 //};
 
-                _moduleConnection = new UdpModuleConnection("192.168.137.76", 8888)
+                _moduleConnection = new UdpModuleConnection("192.168.0.106", 8888)
                 {
-                    LedCount = 159,
+                    LedCount = 15,
                     ErrorMode = ErrorMode.RetryOnError
                 };
+
+                //_moduleConnection = new E131UdpModuleConnection("192.168.0.106")
+                //{
+                //    LedCount = 10
+                //};
 
                 _moduleConnection.Connect();
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 
 namespace Luma.SmartHub.LedStrip.Audio
 {
@@ -12,22 +13,27 @@ namespace Luma.SmartHub.LedStrip.Audio
             //    LedCount = 12
             //};
 
-            //var moduleConnection = new HttpModuleConnection("http://192.168.0.103/led-strip")
+            //var moduleConnection = new HttpModuleConnection("http://192.168.0.108/led-strip")
             //{
             //    ErrorMode = ErrorMode.SendAndForget,
-            //    LedCount = 12
+            //    LedCount = 100
             //};
 
-            var moduleConnection = new UdpModuleConnection("192.168.137.236", 8888)
+            var moduleConnection = new UdpModuleConnection("192.168.0.108", 8888)
             {
-                LedCount = 20,
+                LedCount = 15,
                 ErrorMode = ErrorMode.RetryOnError
             };
+
+            //var moduleConnection = new E131UdpModuleConnection("192.168.0.106")
+            //{
+            //    LedCount = 11
+            //};
 
             moduleConnection.Connect();
 
             using (moduleConnection)
-            using (var audioAnimation = new StroboscopeAnimation(moduleConnection))
+            using (var audioAnimation = new AudioAnimation(moduleConnection))
             {
                 audioAnimation.Start();
 

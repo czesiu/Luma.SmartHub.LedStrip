@@ -7,8 +7,8 @@
 #endif
 
 #define NEOPIXEL_PIN 3
-#define NEOPIXEL_PIXELS 180
-#define UDP_TX_PACKET_MAX_SIZE NEOPIXEL_PIXELS*3+1
+#define NEOPIXEL_PIXELS 310
+#define UDP_TX_PACKET_MAX_SIZE NEOPIXEL_PIXELS*3
 #define UDP_PORT 8888
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NEOPIXEL_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
@@ -19,7 +19,6 @@ byte mac[] = {   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress ip(192, 168, 1, 100);
 
 // buffers for receiving and sending data
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
 char ReplyBuffer[] = "OK";                  // a string to send back
 
 EthernetUDP udp; // An EthernetUDP instance to let us send and receive packets over UDP
@@ -32,6 +31,13 @@ void setup() {
   
   Serial.begin(250000);
   
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+
+  Serial.print("Strip initialized with ");
+  Serial.print(NEOPIXEL_PIXELS);
+  Serial.println(" pixels.");
+    
   if (Ethernet.begin(mac) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
     // no point in carrying on, so do nothing forevermore:
@@ -43,9 +49,7 @@ void setup() {
   }
     
   udp.begin(UDP_PORT);
-    
-  strip.begin();
-  strip.show(); // Initialize all pixels to 'off'
+  
 }
 
 int freeRam ()
@@ -85,11 +89,14 @@ void loop() {
     }
     Serial.print(", port ");
     Serial.println(Udp.remotePort());*/
-  
+    if (packetSize > UDP_TX_PACKET_MAX_SIZE){
+      packetSize = UDP_TX_PACKET_MAX_SIZE;
+    }
+    
     // read the packet into packetBufffer
-    udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+    udp.read(strip.getPixels(), packetSize);
   
-    show(packetBuffer, packetSize);
+    show(strip.getPixels(), packetSize);
   
     // send a reply to the IP address and port that sent us the packet we received
     udp.beginPacket(udp.remoteIP(), udp.remotePort());
@@ -100,29 +107,12 @@ void loop() {
 
 void show(byte* buffer, byte length) {
   if (length == 3) {
-    uint32_t c = color(buffer[0], buffer[1], buffer[2]);
-  
-    showColor(c);
-  }
-  else {
-    uint16_t pixelLength = length / 3;
-    for(uint16_t i = 0; i < strip.numPixels() && i < pixelLength; i++) {
-      strip.setPixelColor(i, color(buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2]));
+    for(uint16_t i = 1; i < strip.numPixels(); i++) {
+      buffer[3*i + 0] = buffer[0];
+      buffer[3*i + 1] = buffer[1];
+      buffer[3*i + 2] = buffer[2];
     }
-  
-    strip.show();
-  }
-}
-
-// Display a single color on the whole string
-void showColor(uint32_t c) {
-  for(uint16_t i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, c);
   }
   
-  strip.show();
-}
-
-uint32_t color(uint8_t r, uint8_t g, uint8_t b) {
-  return ((uint32_t)r << 16) | ((uint32_t)g <<  8) | b;
+  strip.show(); 
 }

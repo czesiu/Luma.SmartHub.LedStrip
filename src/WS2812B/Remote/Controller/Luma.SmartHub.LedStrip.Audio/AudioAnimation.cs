@@ -35,8 +35,8 @@ namespace Luma.SmartHub.LedStrip.Audio
                 {
                     var leds = (int)(Math.Round(_moduleConnection.LedCount * _device.AudioMeterInformation.MasterPeakValue));
 
-                    var colors = Enumerable.Range(0, leds).Select(range => Color.FromArgb(255, range > maxPeek ? 0 : 255, 0))
-                        .Concat(Enumerable.Range(leds, _moduleConnection.LedCount).Select(range => Color.Black)).ToArray();
+                    var colors = Enumerable.Range(0, leds).Select(range => Color.FromArgb(60, range > maxPeek ? 0 : 60, 0))
+                        .Concat(Enumerable.Range(leds, _moduleConnection.LedCount - leds).Select(range => Color.Black)).ToArray();
 
                     _moduleConnection.WriteColors(colors);
 

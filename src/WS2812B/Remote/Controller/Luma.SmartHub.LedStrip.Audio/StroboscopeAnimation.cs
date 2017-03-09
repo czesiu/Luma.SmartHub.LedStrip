@@ -9,12 +9,17 @@ namespace Luma.SmartHub.LedStrip.Audio
     public class StroboscopeAnimation : IDisposable
     {
         private readonly IModuleConnection _moduleConnection;
+        private readonly Color _color;
         private readonly MMDevice _device;
         private CancellationTokenSource _cancellationTokenSource;
 
         public StroboscopeAnimation(IModuleConnection moduleConnection)
+            : this(moduleConnection, Color.White) { }
+
+        public StroboscopeAnimation(IModuleConnection moduleConnection, Color color)
         {
             _moduleConnection = moduleConnection;
+            _color = color;
 
             var deviceEnumerator = new MMDeviceEnumerator();
 
@@ -22,7 +27,7 @@ namespace Luma.SmartHub.LedStrip.Audio
 
             _device = devices[0];
         }
-
+        
         public void Start()
         {
             _cancellationTokenSource = new CancellationTokenSource();
@@ -34,11 +39,11 @@ namespace Luma.SmartHub.LedStrip.Audio
                 {
                     Console.WriteLine("Master peak value: " + _device.AudioMeterInformation.MasterPeakValue);
 
-                    var color = _device.AudioMeterInformation.MasterPeakValue > 0.86 ? Color.White : Color.Black;
+                    var color = _device.AudioMeterInformation.MasterPeakValue > 0.86 ? _color : Color.Black;
 
                     _moduleConnection.WriteColors(color);
 
-                    if (color == Color.White)
+                    if (color == _color)
                     {
                         Thread.Sleep(13);
                         _moduleConnection.WriteColors(Color.Black);

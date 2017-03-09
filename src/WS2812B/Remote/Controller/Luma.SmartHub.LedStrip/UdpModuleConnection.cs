@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Tasks;
 using System.Timers;
-using Nito.KitchenSink.CRC;
 
 namespace Luma.SmartHub.LedStrip
 {
@@ -48,6 +46,7 @@ namespace Luma.SmartHub.LedStrip
 
         public void Disconnect()
         {
+            _udpClient?.Close();
         }
 
         public void WriteColor(Color color)
@@ -58,12 +57,21 @@ namespace Luma.SmartHub.LedStrip
         public void WriteColors(params Color[] colors)
         {
             string result;
-            
+
+            var errorCount = 0;
             do
             {
                 result = WriteColorsInternal(colors);
 
                 //Console.WriteLine("Result: " + result);
+
+                errorCount += (result != "OK") ? 1 : 0;
+
+                if (errorCount > 3)
+                {
+                    Disconnect();
+                    Connect();
+                }
             }
             while (result != "OK" && ErrorMode == ErrorMode.RetryOnError);
 
@@ -75,7 +83,7 @@ namespace Luma.SmartHub.LedStrip
             var sw = new Stopwatch();
             sw.Start();
 
-            var bytes = colors.SelectMany(c => new[] { c.R, c.G, c.B }).ToArray();
+            var bytes = colors.SelectMany(c => new[] { c.G, c.R, c.B }).ToArray();
 
             var sendBytes = _udpClient.Send(bytes, bytes.Length);
 
@@ -85,12 +93,18 @@ namespace Luma.SmartHub.LedStrip
                 return null;
             }
 
-            var remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-            var result = Encoding.ASCII.GetString(_udpClient.Receive(ref remoteEndPoint));
+            var udpReceiveResult = Task.WhenAny(_udpClient.ReceiveAsync(), Task.Delay(33)).Result as Task<UdpReceiveResult>;
 
-            Console.WriteLine("Sent {0} bytes in {1} ms", sendBytes, sw.ElapsedMilliseconds);
+            if (udpReceiveResult != null)
+            {
+                var result = Encoding.ASCII.GetString(udpReceiveResult.Result.Buffer);
 
-            return result;
+                Console.WriteLine("Sent {0} bytes in {1} ms", sendBytes, sw.ElapsedMilliseconds);
+
+                return result;
+            }
+
+            return null;
         }
 
         public void Dispose()
